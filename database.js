@@ -2,15 +2,9 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Render persistent disk path or local path
-const isRender = process.env.RENDER || false;
-const dataDir = isRender ? '/opt/render/project/src/data' : path.join(__dirname, 'data');
-
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'database.sqlite');
+// On Render Free Tier, we just use the current directory.
+// Note: Data will be lost when the server restarts/sleeps.
+const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
 // Create tables

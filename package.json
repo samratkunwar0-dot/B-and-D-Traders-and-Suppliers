@@ -5,5 +5,12 @@
         "install:all": "npm install --prefix backend && npm install --prefix frontend",
         "build": "npm run build --prefix frontend",
         "start": "node backend/server.js"
+    },
+    "dependencies": {
+        "express": "^5.2.1",
+        "socket.io": "^4.8.3",
+        "cors": "^2.8.6",
+        "multer": "^2.1.1",
+        "@supabase/supabase-js": "^2.49.1"
     }
 }
