@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: b-and-d-trade
+    env: node
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000

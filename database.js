@@ -1,7 +1,17 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const db = new Database(path.join(__dirname, 'database.sqlite'));
+// Render persistent disk path or local path
+const isRender = process.env.RENDER || false;
+const dataDir = isRender ? '/opt/render/project/src/data' : path.join(__dirname, 'data');
+
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const dbPath = path.join(dataDir, 'database.sqlite');
+const db = new Database(dbPath);
 
 // Create tables
 db.exec(`
@@ -9,7 +19,7 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
-        role TEXT DEFAULT 'user', -- 'user', 'admin', 'superadmin'
+        role TEXT DEFAULT 'user',
         status TEXT DEFAULT 'At office'
     );
 
@@ -41,7 +51,7 @@ try {
     db.exec(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';`);
 } catch (e) { }
 
-// Insert/Update users with specified passwords and roles
+// Seed users
 const users = [
     { name: 'samrat', role: 'superadmin' },
     { name: 'mandira', role: 'admin' },
@@ -63,7 +73,7 @@ const upsertUser = db.prepare(`
 `);
 
 users.forEach(u => {
-    upsertUser.run(u.name, `${u.name}123`, u.role);
+    upsertUser.run(u.name, \`\${u.name}123\`, u.role);
 });
 
 module.exports = {

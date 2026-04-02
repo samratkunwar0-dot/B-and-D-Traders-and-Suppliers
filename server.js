@@ -4,30 +4,32 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-app.use(cors());
-app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Render persistent disk path for uploads
+const isRender = process.env.RENDER || false;
+const uploadDir = isRender ? '/opt/render/project/src/data/uploads' : path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer setup for media uploads
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads')),
+    destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-// REST Endpoints
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(uploadDir));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// API Routes
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const user = db.getUser(username);
@@ -38,17 +40,9 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-app.get('/api/users', (req, res) => {
-    res.json(db.getAllUsers());
-});
-
-app.get('/api/messages', (req, res) => {
-    res.json(db.getMessages());
-});
-
-app.get('/api/notices', (req, res) => {
-    res.json(db.getNotices());
-});
+app.get('/api/users', (req, res) => res.json(db.getAllUsers()));
+app.get('/api/messages', (req, res) => res.json(db.getMessages()));
+app.get('/api/notices', (req, res) => res.json(db.getNotices()));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -56,22 +50,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     res.json({ url: mediaUrl });
 });
 
-// Socket.io Real-time
+// Socket Events
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-
     socket.on('sendMessage', (data) => {
         const { userId, username, content, mediaType, mediaUrl } = data;
         const result = db.saveMessage(userId, username, content, mediaType, mediaUrl);
-        io.emit('receiveMessage', {
-            id: result.lastInsertRowid,
-            userId,
-            username,
-            content,
-            mediaType,
-            mediaUrl,
-            timestamp: new Date().toISOString()
-        });
+        io.emit('receiveMessage', { id: result.lastInsertRowid, userId, username, content, mediaType, mediaUrl, timestamp: new Date().toISOString() });
     });
 
     socket.on('editMessage', (data) => {
@@ -94,26 +78,18 @@ io.on('connection', (socket) => {
     socket.on('sendNotice', (data) => {
         const { userId, username, title, content, mediaUrl } = data;
         db.saveNotice(userId, username, title, content, mediaUrl);
-        io.emit('noticeReceived', {
-            username,
-            title,
-            content,
-            mediaUrl,
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
+        io.emit('noticeReceived', { username, title, content, mediaUrl, timestamp: new Date().toISOString() });
     });
 });
 
-// SPA Fallback - Catch-all middleware (must be last)
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+// SPA Fallback
+app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    } else {
+        next();
+    }
 });
 
-const PORT = 3001;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
