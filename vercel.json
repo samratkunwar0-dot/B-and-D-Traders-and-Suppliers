@@ -1,5 +1,6 @@
-{
-    "version": 2,
+{"version": 2,
+    "buildCommand": "npm run build",
+    "outputDirectory": "frontend/dist",
     "rewrites": [
         {
             "source": "/api/(.*)",
@@ -15,7 +16,6 @@
         },
         {
             "source": "/(.*)",
-            "destination": "/frontend/dist/index.html"
+            "destination": "/index.html"
         }
-    ]
-}
+    ]}
